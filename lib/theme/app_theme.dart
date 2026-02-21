@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 
 class AppColors {
   static const Color primary = Color(0xFF1A1A2E);
-  static const Color accent = Color(0xFF4F8EF7);
-  static const Color accentLight = Color(0xFFE8F0FE);
+  static const Color accent = Color(0xFF7C3AED);
+  static const Color accentLight = Color(0xFFF3E8FF);
   static const Color background = Color(0xFFF8F9FA);
   static const Color surface = Colors.white;
   static const Color textPrimary = Color(0xFF1A1A2E);
@@ -22,7 +22,7 @@ class AppTheme {
       useMaterial3: true,
       fontFamily: 'SF Pro Display',
       colorScheme: ColorScheme.fromSeed(
-        seedColor: AppColors.accent,
+        seedColor: const Color(0xFF7C3AED),
         brightness: Brightness.light,
         background: AppColors.background,
         surface: AppColors.surface,

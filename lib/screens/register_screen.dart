@@ -79,7 +79,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 ),
                 const SizedBox(height: 24),
                 Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                  const Text('Already have an account? ', style: AppTextStyles.bodySecondary),
+                  const Text('Already have an account?', style: AppTextStyles.bodySecondary),
                   TextButton(onPressed: () => Navigator.pushReplacementNamed(context, '/login'), child: const Text('Login')),
                 ]),
                 const SizedBox(height: 20),

@@ -23,26 +23,93 @@ class CardsService {
     return [];
   }
 
-  Future<CardResult> createCard(VisitingCard card) async {
+  // ─── Save Card + Photo ────────────────────────────────────
+  //
+  // Flow for NEW card:
+  //   1. POST /cards          → card created, id milta hai
+  //   2. POST /cards/:id/photo → Cloudinary pe upload, photo_url DB mein save
+  //
+  // Flow for EDIT card:
+  //   1. PUT /cards/:id       → card updated
+  //   2. POST /cards/:id/photo → sirf agar nayi photo pick ki ho
+
+  Future<CardResult> saveCard(VisitingCard card, {File? photo}) async {
+    // Step 1: Card data save karo (create ya update)
+    CardResult result;
+    if (card.id.isEmpty) {
+      result = await _createCard(card);
+    } else {
+      result = await _updateCard(card);
+    }
+
+    if (!result.success || result.card == null) return result;
+
+    // Step 2: Photo upload karo (card.id ab guaranteed exist karta hai)
+    if (photo != null) {
+      final photoUrl = await uploadPhoto(result.card!.id, photo);
+      if (photoUrl != null) {
+        return CardResult(
+          success: true,
+          card: result.card!.copyWith(photoUrl: photoUrl),
+        );
+      }
+      // Photo upload fail — card toh ban gaya, non-fatal
+    }
+
+    return result;
+  }
+
+  Future<CardResult> _createCard(VisitingCard card) async {
     final res = await ApiClient.instance.post('/cards', card.toJson());
-    if (res.success) return CardResult(success: true, card: VisitingCard.fromJson(res.data['card'] as Map<String, dynamic>));
-    if (res.statusCode == 403) return CardResult(success: false, message: res.message, isLimitReached: true);
-    return CardResult(success: false, message: res.message ?? 'Failed to create card');
+    if (res.success) {
+      return CardResult(
+        success: true,
+        card: VisitingCard.fromJson(res.data['card'] as Map<String, dynamic>),
+      );
+    }
+    if (res.statusCode == 403) {
+      return CardResult(success: false, message: res.message, isLimitReached: true);
+    }
+    return CardResult(success: false, message: res.message ?? 'Card create nahi ho saka');
   }
 
-  Future<CardResult> updateCard(VisitingCard card) async {
+  Future<CardResult> _updateCard(VisitingCard card) async {
     final res = await ApiClient.instance.put('/cards/${card.id}', card.toJson());
-    if (res.success) return CardResult(success: true, card: VisitingCard.fromJson(res.data['card'] as Map<String, dynamic>));
-    return CardResult(success: false, message: res.message ?? 'Failed to update card');
+    if (res.success) {
+      return CardResult(
+        success: true,
+        card: VisitingCard.fromJson(res.data['card'] as Map<String, dynamic>),
+      );
+    }
+    return CardResult(success: false, message: res.message ?? 'Card update nahi ho saka');
   }
 
-  Future<CardResult> saveCard(VisitingCard card) async {
-    if (card.id.isEmpty) return createCard(card);
-    final res = await ApiClient.instance.put('/cards/${card.id}', card.toJson());
-    if (res.statusCode == 404) return createCard(card);
-    if (res.success) return CardResult(success: true, card: VisitingCard.fromJson(res.data['card'] as Map<String, dynamic>));
-    if (res.statusCode == 403) return CardResult(success: false, message: res.message, isLimitReached: true);
-    return CardResult(success: false, message: res.message ?? 'Failed to save card');
+  // ─── Photo Upload ─────────────────────────────────────────
+  //
+  // Card pehle ban chuka hota hai — id guaranteed exist karta hai.
+  // Backend Cloudinary pe upload karta hai aur secure_url return karta hai.
+
+  Future<String?> uploadPhoto(String cardId, File photo) async {
+    try {
+      final token = await ApiClient.instance.getToken();
+      if (token == null) return null;
+
+      final uri     = Uri.parse('${ApiClient.baseUrl}/cards/$cardId/photo');
+      final request = http.MultipartRequest('POST', uri)
+        ..headers['Authorization'] = 'Bearer $token'
+        ..files.add(await http.MultipartFile.fromPath('photo', photo.path));
+
+      final streamed = await request.send().timeout(const Duration(seconds: 30));
+      final response = await http.Response.fromStream(streamed);
+      final body     = jsonDecode(response.body) as Map<String, dynamic>;
+
+      if (response.statusCode == 200 && body['success'] == true) {
+        return body['photoUrl'] as String?;
+      }
+      return null;
+    } catch (_) {
+      return null;
+    }
   }
 
   Future<bool> deleteCard(String id) async {
@@ -50,50 +117,6 @@ class CardsService {
     return res.success;
   }
 
-  // ─── Photo Upload ─────────────────────────────────────────
-
-  /// Upload profile photo for a card. Returns the remote URL on success.
- Future<String?> uploadPhoto(String cardId, File photo) async {
-  try {
-    final token = await ApiClient.instance.getToken();
-    if (token == null) {
-      print("❌ Token is null");
-      return null;
-    }
-
-    final uri = Uri.parse('${ApiClient.baseUrl}/cards/$cardId/photo');
-
-    final request = http.MultipartRequest('POST', uri)
-      ..headers['Authorization'] = 'Bearer $token'
-      ..files.add(await http.MultipartFile.fromPath('photo', photo.path));
-
-    print("➡️ Uploading to: $uri");
-    print("📁 File path: ${photo.path}");
-
-    final streamed = await request.send().timeout(const Duration(seconds: 30));
-
-    print("⬅️ Status Code: ${streamed.statusCode}");
-
-    final res = await http.Response.fromStream(streamed);
-
-    print("⬅️ Raw Response: ${res.body}");
-
-    final body = jsonDecode(res.body);
-
-    if (res.statusCode == 200 && body['success'] == true) {
-      print("✅ Upload success");
-      return body['photoUrl'];
-    }
-
-    print("❌ Upload failed: $body");
-    return null;
-
-  } catch (e, stack) {
-    print("🔥 Exception: $e");
-    print(stack);
-    return null;
-  }
-}
   // ─── Collected Cards ──────────────────────────────────────
 
   Future<List<CollectedCard>> getCollectedCards() async {
@@ -129,26 +152,37 @@ class CardsService {
 
   String encodeCardToQR(VisitingCard card) {
     return jsonEncode({
-      'name': card.name, 'designation': card.designation, 'company': card.company,
-      'email1': card.email1, 'email2': card.email2,
-      'phone1': card.phone1, 'phone2': card.phone2,
-      'website': card.website, 'address': card.address,
-      'templateIndex': card.templateIndex, 'photoUrl': card.photoUrl ?? '',
+      'name': card.name,           'designation': card.designation,
+      'company': card.company,     'email1': card.email1,
+      'email2': card.email2,       'phone1': card.phone1,
+      'phone2': card.phone2,       'website': card.website,
+      'address': card.address,     'templateIndex': card.templateIndex,
+      'photoUrl': card.photoUrl ?? '',
     });
   }
 
   Future<CollectedCard?> decodeQRAndSave(String qrData) async {
     try {
-      final json = jsonDecode(qrData) as Map<String, dynamic>;
-      return await addCollectedCard(json);
-    } catch (_) { return null; }
+      final data = jsonDecode(qrData) as Map<String, dynamic>;
+      return await addCollectedCard(data);
+    } catch (_) {
+      return null;
+    }
   }
 }
+
+// ─── Result wrapper ───────────────────────────────────────────
 
 class CardResult {
   final bool success;
   final VisitingCard? card;
   final String? message;
   final bool isLimitReached;
-  CardResult({required this.success, this.card, this.message, this.isLimitReached = false});
+
+  CardResult({
+    required this.success,
+    this.card,
+    this.message,
+    this.isLimitReached = false,
+  });
 }

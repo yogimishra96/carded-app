@@ -23,42 +23,139 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() => _user = user);
   }
 
-  Future<void> _showChangePassword() async {
-    final oldCtrl = TextEditingController();
-    final newCtrl = TextEditingController();
-    await showModalBottomSheet(context: context, isScrollControlled: true,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (ctx) => Padding(
-        padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom + 24, left: 24, right: 24, top: 24),
-        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Text('Change Password', style: AppTextStyles.heading3),
-          const SizedBox(height: 20),
-          AppTextField(label: 'Current Password', hint: '', controller: oldCtrl, obscureText: true),
-          const SizedBox(height: 14),
-          AppTextField(label: 'New Password', hint: 'Minimum 6 characters', controller: newCtrl, obscureText: true),
-          const SizedBox(height: 20),
-          ElevatedButton(
-            onPressed: () async {
-              final result = await AuthService.instance.changePassword(oldCtrl.text, newCtrl.text);
-              if (!mounted) return;
-              Navigator.pop(ctx);
-              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                content: Text(result.success ? 'Password updated!' : (result.message ?? 'Failed')),
-                backgroundColor: result.success ? AppColors.success : AppColors.error));
-            },
-            child: const Text('Update Password')),
-        ])));
-    oldCtrl.dispose(); newCtrl.dispose();
-  }
+Future<void> _showChangePassword() async {
+  final oldCtrl = TextEditingController();
+  final newCtrl = TextEditingController();
 
+  // State variables for show/hide password
+  bool _showOldPassword = false;
+  bool _showNewPassword = false;
+
+  await showModalBottomSheet( 
+    context: context,
+    isScrollControlled: true,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    ),
+    builder: (ctx) {
+      return StatefulBuilder(  // ← StatefulBuilder use kiya taaki eye toggle kaam kare
+        builder: (context, setModalState) => Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(ctx).viewInsets.bottom +
+                    MediaQuery.of(ctx).padding.bottom +
+                    40,
+            left: 24,
+            right: 24,
+            top: 24,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Change Password', style: AppTextStyles.heading3),
+              const SizedBox(height: 20),
+
+              // Current Password with eye icon
+              AppTextField(
+                label: 'Current Password',
+                hint: '',
+                controller: oldCtrl,
+                obscureText: !_showOldPassword,  // dynamic
+                suffixIcon: IconButton(
+                  icon: Icon(
+                    _showOldPassword ? Icons.visibility : Icons.visibility_off,
+                    color: AppColors.textSecondary,
+                  ),
+                  onPressed: () {
+                    setModalState(() {
+                      _showOldPassword = !_showOldPassword;
+                    });
+                  },
+                ),
+              ),
+              const SizedBox(height: 14),
+
+              // New Password with eye icon
+              AppTextField(
+                label: 'New Password',
+                hint: 'Minimum 6 characters',
+                controller: newCtrl,
+                obscureText: !_showNewPassword,  // dynamic
+                suffixIcon: IconButton(
+                  icon: Icon(
+                    _showNewPassword ? Icons.visibility : Icons.visibility_off,
+                    color: AppColors.textSecondary,
+                  ),
+                  onPressed: () {
+                    setModalState(() {
+                      _showNewPassword = !_showNewPassword;
+                    });
+                  },
+                ),
+              ),
+              const SizedBox(height: 32),
+
+              // Update Button
+              SizedBox(
+                width: double.infinity,
+                height: 54,
+                child: ElevatedButton(
+                  onPressed: () async {
+                    final result = await AuthService.instance.changePassword(
+                      oldCtrl.text,
+                      newCtrl.text,
+                    );
+                    if (!mounted) return;
+                    Navigator.pop(ctx);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          result.success
+                              ? 'Password updated!'
+                              : (result.message ?? 'Failed'),
+                        ),
+                        backgroundColor:
+                            result.success ? AppColors.success : AppColors.error,
+                      ),
+                    );
+                  },
+                  style: ElevatedButton.styleFrom(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: const Text('Update Password'),
+                ),
+              ),
+              const SizedBox(height: 24),
+            ],
+          ),
+        ),
+      );
+    },
+  );
+
+  oldCtrl.dispose();
+  newCtrl.dispose();
+}
   Future<void> _logout() async {
-    final confirm = await showDialog<bool>(context: context,
-      builder: (ctx) => AlertDialog(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Logout'), content: const Text('Are you sure you want to logout?'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-          TextButton(onPressed: () => Navigator.pop(ctx, true), style: TextButton.styleFrom(foregroundColor: AppColors.error), child: const Text('Logout')),
-        ]));
+    final confirm = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16)),
+                title: const Text('Logout'),
+                content: const Text('Are you sure you want to logout?'),
+                actions: [
+                  TextButton(
+                      onPressed: () => Navigator.pop(ctx, false),
+                      child: const Text('Cancel')),
+                  TextButton(
+                      onPressed: () => Navigator.pop(ctx, true),
+                      style: TextButton.styleFrom(
+                          foregroundColor: AppColors.error),
+                      child: const Text('Logout')),
+                ]));
     if (confirm == true) {
       await AuthService.instance.logout();
       if (!mounted) return;

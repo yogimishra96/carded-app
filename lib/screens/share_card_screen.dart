@@ -30,7 +30,6 @@ class _ShareCardScreenState extends State<ShareCardScreen> {
       _cards = cards;
       _isLoading = false;
     });
-    // Pre-select if passed via args
     final args = ModalRoute.of(context)?.settings.arguments as String?;
     if (args != null) {
       final card = cards.where((c) => c.id == args).firstOrNull;
@@ -74,7 +73,7 @@ class _ShareCardScreenState extends State<ShareCardScreen> {
                 )
               : Column(
                   children: [
-                    // Card selector
+                    // Card selector chips
                     if (_cards.length > 1) ...[
                       Padding(
                         padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
@@ -121,7 +120,7 @@ class _ShareCardScreenState extends State<ShareCardScreen> {
                         ),
                       ),
                     ],
-                    // QR fullscreen area
+                    // QR area — scrollable to prevent overflow
                     Expanded(
                       child: _selected == null
                           ? const Center(child: Text('Select a card'))
@@ -135,22 +134,20 @@ class _ShareCardScreenState extends State<ShareCardScreen> {
 
 class _QRDisplay extends StatelessWidget {
   final VisitingCard card;
-
   const _QRDisplay({required this.card});
 
   @override
   Widget build(BuildContext context) {
     final qrData = CardsService.instance.encodeCardToQR(card);
 
-    return Padding(
-      padding: const EdgeInsets.all(24),
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
         children: [
           VisitingCardWidget(card: card),
-          const SizedBox(height: 28),
+          const SizedBox(height: 20),
           Container(
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(24),
@@ -163,16 +160,16 @@ class _QRDisplay extends StatelessWidget {
                 QrImageView(
                   data: qrData,
                   version: QrVersions.auto,
-                  size: 200,
+                  size: 170,
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
                 Text(card.nickname, style: AppTextStyles.heading3),
                 const SizedBox(height: 4),
                 Text(card.name, style: AppTextStyles.bodySecondary),
               ],
             ),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
             decoration: BoxDecoration(
