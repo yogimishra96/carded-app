@@ -4,8 +4,8 @@ class VisitingCard {
   String name;
   String designation;
   String company;
-  String? logoPath;
-  String? photoPath;
+  String? photoUrl;   // remote URL from server after upload
+  String? photoPath;  // local file path (before upload / offline)
   String email1;
   String email2;
   String phone1;
@@ -21,7 +21,7 @@ class VisitingCard {
     required this.name,
     required this.designation,
     required this.company,
-    this.logoPath,
+    this.photoUrl,
     this.photoPath,
     required this.email1,
     this.email2 = '',
@@ -39,8 +39,7 @@ class VisitingCard {
         'name': name,
         'designation': designation,
         'company': company,
-        'logoPath': logoPath,
-        'photoPath': photoPath,
+        'photoUrl': photoUrl,
         'email1': email1,
         'email2': email2,
         'phone1': phone1,
@@ -52,21 +51,22 @@ class VisitingCard {
       };
 
   factory VisitingCard.fromJson(Map<String, dynamic> json) => VisitingCard(
-        id: json['id'],
-        nickname: json['nickname'],
-        name: json['name'],
-        designation: json['designation'],
-        company: json['company'],
-        logoPath: json['logoPath'],
-        photoPath: json['photoPath'],
-        email1: json['email1'],
+        id: json['id'] ?? '',
+        nickname: json['nickname'] ?? '',
+        name: json['name'] ?? '',
+        designation: json['designation'] ?? '',
+        company: json['company'] ?? '',
+        photoUrl: json['photoUrl'] ?? json['photo_url'],
+        email1: json['email1'] ?? '',
         email2: json['email2'] ?? '',
-        phone1: json['phone1'],
+        phone1: json['phone1'] ?? '',
         phone2: json['phone2'] ?? '',
         website: json['website'] ?? '',
         address: json['address'] ?? '',
-        templateIndex: json['templateIndex'] ?? 0,
-        createdAt: DateTime.parse(json['createdAt']),
+        templateIndex: json['templateIndex'] ?? json['template_index'] ?? 0,
+        createdAt: json['createdAt'] != null
+            ? DateTime.tryParse(json['createdAt']) ?? DateTime.now()
+            : DateTime.now(),
       );
 
   VisitingCard copyWith({
@@ -74,7 +74,7 @@ class VisitingCard {
     String? name,
     String? designation,
     String? company,
-    String? logoPath,
+    String? photoUrl,
     String? photoPath,
     String? email1,
     String? email2,
@@ -90,7 +90,7 @@ class VisitingCard {
         name: name ?? this.name,
         designation: designation ?? this.designation,
         company: company ?? this.company,
-        logoPath: logoPath ?? this.logoPath,
+        photoUrl: photoUrl ?? this.photoUrl,
         photoPath: photoPath ?? this.photoPath,
         email1: email1 ?? this.email1,
         email2: email2 ?? this.email2,
@@ -101,4 +101,7 @@ class VisitingCard {
         templateIndex: templateIndex ?? this.templateIndex,
         createdAt: createdAt,
       );
+
+  /// Returns a photo widget-ready image URL or null
+  String? get effectivePhotoUrl => photoUrl?.isNotEmpty == true ? photoUrl : null;
 }
