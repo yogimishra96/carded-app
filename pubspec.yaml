@@ -11,7 +11,8 @@ dependencies:
     sdk: flutter
   # Networking
   http: ^1.2.0
-  # Local storage (token + user cache only)
+  http_parser: ^4.0.2
+  # Local storage
   shared_preferences: ^2.2.2
   # QR
   qr_flutter: ^4.1.0
@@ -22,21 +23,16 @@ dependencies:
   intl: ^0.19.0
   path_provider: ^2.1.2
   cupertino_icons: ^1.0.6
-  flutter_contacts: ^1.1.9+2
+  # Google Sign-In
+  google_sign_in: ^6.2.1
+  # Contacts
+  flutter_contacts: ^1.1.9+1
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^3.0.0
   flutter_launcher_icons: ^0.13.1
-
-flutter_launcher_icons:
-  android: true
-  ios: false
-  image_path: "assets/icon/logo.png"
-  adaptive_icon_background: "#FFFFFF"  # ya apna brand color
-  adaptive_icon_foreground: "assets/icon/fg.png"
-
 
 flutter:
   uses-material-design: true

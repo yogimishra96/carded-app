@@ -70,7 +70,7 @@ class CardsService {
     if (res.statusCode == 403) {
       return CardResult(success: false, message: res.message, isLimitReached: true);
     }
-    return CardResult(success: false, message: res.message ?? 'Card create nahi ho saka');
+    return CardResult(success: false, message: res.message ?? 'Failed to create card. Please try again.');
   }
 
   Future<CardResult> _updateCard(VisitingCard card) async {
@@ -81,7 +81,22 @@ class CardsService {
         card: VisitingCard.fromJson(res.data['card'] as Map<String, dynamic>),
       );
     }
-    return CardResult(success: false, message: res.message ?? 'Card update nahi ho saka');
+    return CardResult(success: false, message: res.message ?? 'Failed to update card. Please try again.');
+  }
+
+    // ─── Save Any QR Code (Type 3) ────────────────────────────
+  Future<CollectedCard?> saveQrOther({
+    required String name,
+    required String qrRawData,
+    Map<String, dynamic>? parsedData,
+  }) async {
+    final res = await ApiClient.instance.post('/collected/qr-other', {
+      'name':       name,
+      'qrRawData':  qrRawData,
+      'parsedData': parsedData ?? {},
+    });
+    if (res.success) return CollectedCard.fromJson(res.data['card'] as Map<String, dynamic>);
+    return null;
   }
 
   // ─── Photo Upload ─────────────────────────────────────────
@@ -186,3 +201,4 @@ class CardResult {
     this.isLimitReached = false,
   });
 }
+

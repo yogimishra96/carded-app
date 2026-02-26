@@ -36,9 +36,9 @@ class _CardPreviewScreenState extends State<CardPreviewScreen> {
       Navigator.pushNamedAndRemoveUntil(
           context, '/my-cards', (route) => route.settings.name == '/home');
     } else if (result.isLimitReached) {
-      _showError('Card limit reach ho gayi (max 5). Koi card delete karo pehle.');
+      _showError('Card limit reached (max 5). Please delete an existing card first.');
     } else {
-      _showError(result.message ?? 'Card save nahi ho saka. Dobara try karo.');
+      _showError(result.message ?? 'Could not save card. Please try again.');
     }
   }
 

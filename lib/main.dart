@@ -16,7 +16,8 @@ import 'screens/scan_card_screen.dart';
 import 'screens/collected_cards_screen.dart';
 import 'screens/collected_card_detail_screen.dart';
 import 'screens/settings_screen.dart';
-
+import 'screens/verify_otp_screen.dart';
+import 'screens/reset_password_screen.dart';
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
@@ -42,6 +43,8 @@ class CardedApp extends StatelessWidget {
         '/login': (ctx) => const LoginScreen(),
         '/register': (ctx) => const RegisterScreen(),
         '/forgot-password': (ctx) => const ForgotPasswordScreen(),
+        '/verify-otp':      (_) => const VerifyOtpScreen(),
+        '/reset-password':  (_) => const ResetPasswordScreen(),
         '/home': (ctx) => const HomeScreen(),
         '/my-cards': (ctx) => const MyCardsScreen(),
         '/create-template': (ctx) => const TemplateSelectionScreen(),

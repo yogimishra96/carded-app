@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../theme/app_theme.dart';
 import '../models/collected_card.dart';
 import '../services/cards_service.dart';
@@ -12,77 +13,41 @@ class CollectedCardDetailScreen extends StatefulWidget {
 
 class _CollectedCardDetailScreenState extends State<CollectedCardDetailScreen> {
   late CollectedCard _card;
-  final _categoryCtrl = TextEditingController();
-  final _leadTypeCtrl = TextEditingController();
-  final _remarksCtrl = TextEditingController();
-  bool _isSaving = false;
   bool _initialized = false;
-
-  static const List<String> _categories = ['Client', 'Partner', 'Investor', 'Vendor', 'Colleague', 'Friend', 'Other'];
-  static const List<String> _leadTypes = ['Hot', 'Warm', 'Cold', 'Qualified', 'Not Applicable'];
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (!_initialized) {
-      _card = ModalRoute.of(context)!.settings.arguments as CollectedCard;
-      _categoryCtrl.text = _card.category;
-      _leadTypeCtrl.text = _card.leadType;
-      _remarksCtrl.text = _card.remarks;
-      _initialized = true;
-    }
-  }
-
-  Future<void> _save() async {
-    setState(() => _isSaving = true);
-    final success = await CardsService.instance.updateCollectedCard(
-      _card.id,
-      category: _categoryCtrl.text.trim(),
-      leadType: _leadTypeCtrl.text.trim(),
-      remarks: _remarksCtrl.text.trim(),
-    );
-    if (!mounted) return;
-    setState(() => _isSaving = false);
-    if (success) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Saved!'), backgroundColor: AppColors.success));
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Failed to save'), backgroundColor: AppColors.error));
-    }
+    if (_initialized) return;
+    _initialized = true;
+    _card = ModalRoute.of(context)!.settings.arguments as CollectedCard;
   }
 
   Future<void> _delete() async {
-    final confirm = await showDialog<bool>(context: context,
-      builder: (ctx) => AlertDialog(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Delete Card'), content: const Text('Remove this card from your collection?'),
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Delete Card'),
+        content: Text('Delete "${_card.name}"? Cannot be undone.'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-          TextButton(onPressed: () => Navigator.pop(ctx, true), style: TextButton.styleFrom(foregroundColor: AppColors.error), child: const Text('Delete')),
-        ]));
+          TextButton(onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(foregroundColor: AppColors.error),
+            child: const Text('Delete')),
+        ],
+      ),
+    );
     if (confirm == true) {
       await CardsService.instance.deleteCollectedCard(_card.id);
-      if (!mounted) return;
-      Navigator.pop(context);
+      if (mounted) Navigator.pop(context);
     }
   }
 
-  @override
-  void dispose() { _categoryCtrl.dispose(); _leadTypeCtrl.dispose(); _remarksCtrl.dispose(); super.dispose(); }
-
-  Widget _chipSelector({required String label, required List<String> options, required TextEditingController controller}) {
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Text(label, style: AppTextStyles.label),
-      const SizedBox(height: 8),
-      Wrap(spacing: 8, runSpacing: 6, children: options.map((opt) {
-        final selected = controller.text == opt;
-        return GestureDetector(
-          onTap: () => setState(() => controller.text = selected ? '' : opt),
-          child: AnimatedContainer(duration: const Duration(milliseconds: 150),
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-            decoration: BoxDecoration(color: selected ? AppColors.accent : Colors.white, borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: selected ? AppColors.accent : AppColors.border)),
-            child: Text(opt, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: selected ? Colors.white : AppColors.textPrimary))));
-      }).toList()),
-    ]);
+  void _copy(String val) {
+    Clipboard.setData(ClipboardData(text: val));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Copied!'), duration: Duration(seconds: 1)));
   }
 
   @override
@@ -90,67 +55,341 @@ class _CollectedCardDetailScreenState extends State<CollectedCardDetailScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        leading: IconButton(icon: const Icon(Icons.arrow_back_ios, size: 18), onPressed: () => Navigator.pop(context)),
-        title: Text(_card.autoName),
-        actions: [IconButton(icon: const Icon(Icons.delete_outline, color: AppColors.error), onPressed: _delete)],
+        leading: IconButton(icon: const Icon(Icons.arrow_back_ios, size: 18),
+            onPressed: () => Navigator.pop(context)),
+        title: Text(_card.name, overflow: TextOverflow.ellipsis),
+        actions: [
+          IconButton(icon: const Icon(Icons.delete_outline, color: AppColors.error),
+              onPressed: _delete),
+        ],
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(20),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Container(padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16),
-              boxShadow: [BoxShadow(color: AppColors.cardShadow, blurRadius: 8)]),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Row(children: [
-                Container(width: 52, height: 52, decoration: BoxDecoration(color: AppColors.accentLight, borderRadius: BorderRadius.circular(14)),
-                  child: Center(child: Text(_card.name.isNotEmpty ? _card.name[0].toUpperCase() : '?',
-                    style: const TextStyle(color: AppColors.accent, fontSize: 22, fontWeight: FontWeight.bold)))),
-                const SizedBox(width: 14),
-                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(_card.name, style: AppTextStyles.heading3),
-                  Text(_card.designation, style: AppTextStyles.bodySecondary),
-                  Text(_card.company, style: const TextStyle(color: AppColors.accent, fontWeight: FontWeight.w500, fontSize: 13)),
-                ])),
+
+          // ── Type-specific header ─────────────────────────────
+          if (_card.scanType == ScanType.carded)    _CardedHeader(card: _card),
+          if (_card.scanType == ScanType.photoCard) _PhotoCardHeader(card: _card),
+          if (_card.scanType == ScanType.qrOther)   _QrOtherHeader(card: _card, onCopy: _copy),
+
+          const SizedBox(height: 20),
+
+          // ── Contact Details (show for carded & qr_other if has data) ──
+          if (_card.scanType != ScanType.photoCard) ...[
+            if (_card.designation.isNotEmpty || _card.company.isNotEmpty ||
+                _card.email1.isNotEmpty || _card.phone1.isNotEmpty ||
+                _card.website.isNotEmpty || _card.address.isNotEmpty)
+              _Section(title: 'Contact Info', children: [
+                if (_card.designation.isNotEmpty)
+                  _InfoRow(icon: Icons.work_outline, label: _card.designation, onCopy: () => _copy(_card.designation)),
+                if (_card.company.isNotEmpty)
+                  _InfoRow(icon: Icons.business_outlined, label: _card.company, onCopy: () => _copy(_card.company)),
+                if (_card.email1.isNotEmpty)
+                  _InfoRow(icon: Icons.email_outlined, label: _card.email1, onCopy: () => _copy(_card.email1)),
+                if (_card.email2.isNotEmpty)
+                  _InfoRow(icon: Icons.email_outlined, label: _card.email2, onCopy: () => _copy(_card.email2)),
+                if (_card.phone1.isNotEmpty)
+                  _InfoRow(icon: Icons.phone_outlined, label: _card.phone1, onCopy: () => _copy(_card.phone1)),
+                if (_card.phone2.isNotEmpty)
+                  _InfoRow(icon: Icons.phone_outlined, label: _card.phone2, onCopy: () => _copy(_card.phone2)),
+                if (_card.website.isNotEmpty)
+                  _InfoRow(icon: Icons.language_outlined, label: _card.website, onCopy: () => _copy(_card.website)),
+                if (_card.address.isNotEmpty)
+                  _InfoRow(icon: Icons.location_on_outlined, label: _card.address, onCopy: () => _copy(_card.address)),
               ]),
-              const SizedBox(height: 16),
-              const Divider(color: AppColors.border),
-              const SizedBox(height: 12),
-              if (_card.phone1.isNotEmpty) _ContactRow(icon: Icons.phone_outlined, text: _card.phone1),
-              if (_card.phone2.isNotEmpty) _ContactRow(icon: Icons.phone_outlined, text: _card.phone2),
-              if (_card.email1.isNotEmpty) _ContactRow(icon: Icons.email_outlined, text: _card.email1),
-              if (_card.email2.isNotEmpty) _ContactRow(icon: Icons.email_outlined, text: _card.email2),
-              if (_card.website.isNotEmpty) _ContactRow(icon: Icons.language_outlined, text: _card.website),
-              if (_card.address.isNotEmpty) _ContactRow(icon: Icons.location_on_outlined, text: _card.address),
-            ])),
-          const SizedBox(height: 24),
-          const Text('Tags & Notes', style: AppTextStyles.label),
+          ],
+
           const SizedBox(height: 16),
-          _chipSelector(label: 'Category', options: _categories, controller: _categoryCtrl),
-          const SizedBox(height: 16),
-          _chipSelector(label: 'Lead Type', options: _leadTypes, controller: _leadTypeCtrl),
-          const SizedBox(height: 16),
-          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            const Text('Remarks', style: AppTextStyles.label),
-            const SizedBox(height: 6),
-            TextFormField(controller: _remarksCtrl, maxLines: 3, style: const TextStyle(fontSize: 15),
-              decoration: const InputDecoration(hintText: 'Add notes about this contact...')),
+
+          // ── Notes ────────────────────────────────────────────
+          _NotesSection(card: _card, onSaved: (updated) => setState(() => _card = updated)),
+
+          const SizedBox(height: 20),
+
+          // ── Meta ─────────────────────────────────────────────
+          _Section(title: 'Info', children: [
+            _InfoRow(icon: Icons.calendar_today_outlined,
+              label: 'Scanned ${_formatDate(_card.scannedAt)}'),
+            _InfoRow(icon: Icons.label_outline,
+              label: 'Type: ${_card.scanTypeLabel}'),
           ]),
-          const SizedBox(height: 24),
-          ElevatedButton(onPressed: _isSaving ? null : _save,
-            child: _isSaving ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : const Text('Save')),
-          const SizedBox(height: 12),
-          Text('Scanned on ${_card.scannedAt.day}/${_card.scannedAt.month}/${_card.scannedAt.year}', style: AppTextStyles.caption),
-          const SizedBox(height: 24),
         ]),
       ),
     );
   }
+
+  String _formatDate(DateTime dt) => '${dt.day}/${dt.month}/${dt.year}';
 }
 
-class _ContactRow extends StatelessWidget {
-  final IconData icon; final String text;
-  const _ContactRow({required this.icon, required this.text});
+// ─── TYPE 1: Carded Header ────────────────────────────────────
+
+class _CardedHeader extends StatelessWidget {
+  final CollectedCard card;
+  const _CardedHeader({required this.card});
+
   @override
-  Widget build(BuildContext context) => Padding(padding: const EdgeInsets.only(bottom: 10),
-    child: Row(children: [Icon(icon, size: 16, color: AppColors.textSecondary), const SizedBox(width: 10), Expanded(child: Text(text, style: AppTextStyles.body))]));
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF6B21E8), Color(0xFF9333EA)],
+          begin: Alignment.topLeft, end: Alignment.bottomRight),
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [BoxShadow(color: const Color(0xFF6B21E8).withOpacity(0.3),
+            blurRadius: 16, offset: const Offset(0, 6))],
+      ),
+      child: Row(children: [
+        // Avatar
+        Container(width: 56, height: 56,
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.2),
+            shape: BoxShape.circle,
+            border: Border.all(color: Colors.white.withOpacity(0.3), width: 2)),
+          child: card.photoUrl.isNotEmpty
+              ? ClipOval(child: Image.network(card.photoUrl, fit: BoxFit.cover))
+              : Center(child: Text(
+                  card.name.isNotEmpty ? card.name[0].toUpperCase() : '?',
+                  style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w800)))),
+        const SizedBox(width: 14),
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(card.name, style: const TextStyle(color: Colors.white, fontSize: 17,
+              fontWeight: FontWeight.w800), maxLines: 1, overflow: TextOverflow.ellipsis),
+          if (card.designation.isNotEmpty)
+            Text(card.designation, style: TextStyle(color: Colors.white.withOpacity(0.8),
+                fontSize: 13), maxLines: 1, overflow: TextOverflow.ellipsis),
+          if (card.company.isNotEmpty)
+            Text(card.company, style: TextStyle(color: Colors.white.withOpacity(0.7),
+                fontSize: 12), maxLines: 1, overflow: TextOverflow.ellipsis),
+        ])),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(color: Colors.white.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(8)),
+          child: const Text('Carded', style: TextStyle(color: Colors.white,
+              fontSize: 10, fontWeight: FontWeight.w700))),
+      ]),
+    );
+  }
+}
+
+// ─── TYPE 2: Photo Card Header ────────────────────────────────
+
+class _PhotoCardHeader extends StatelessWidget {
+  final CollectedCard card;
+  const _PhotoCardHeader({required this.card});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      // Card image
+      if (card.cardImageUrl.isNotEmpty)
+        ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: Image.network(card.cardImageUrl,
+            width: double.infinity, height: 200, fit: BoxFit.cover,
+            loadingBuilder: (_, child, progress) => progress == null ? child
+                : Container(height: 200, color: AppColors.border,
+                    child: const Center(child: CircularProgressIndicator())),
+            errorBuilder: (_, __, ___) => Container(height: 200,
+              decoration: BoxDecoration(color: AppColors.border,
+                  borderRadius: BorderRadius.circular(16)),
+              child: const Center(child: Icon(Icons.broken_image_outlined, size: 48, color: AppColors.textHint))),
+          ),
+        ),
+      const SizedBox(height: 14),
+      // Name + badge
+      Row(children: [
+        Expanded(child: Text(card.name, style: const TextStyle(fontSize: 22,
+            fontWeight: FontWeight.w800, color: Color(0xFF0F172A)))),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          decoration: BoxDecoration(color: const Color(0xFFECFDF5),
+              borderRadius: BorderRadius.circular(8)),
+          child: const Row(mainAxisSize: MainAxisSize.min, children: [
+            Icon(Icons.camera_alt_outlined, size: 12, color: Color(0xFF059669)),
+            SizedBox(width: 4),
+            Text('Photo Card', style: TextStyle(fontSize: 10,
+                fontWeight: FontWeight.w700, color: Color(0xFF059669))),
+          ])),
+      ]),
+      if (card.company.isNotEmpty)
+        Text(card.company, style: const TextStyle(fontSize: 14, color: AppColors.textSecondary)),
+    ]);
+  }
+}
+
+// ─── TYPE 3: QR Other Header ──────────────────────────────────
+
+class _QrOtherHeader extends StatelessWidget {
+  final CollectedCard card;
+  final void Function(String) onCopy;
+  const _QrOtherHeader({required this.card, required this.onCopy});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFFBEB),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFFDE68A), width: 1.5),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Container(width: 42, height: 42,
+            decoration: BoxDecoration(color: const Color(0xFFFEF3C7),
+                borderRadius: BorderRadius.circular(12)),
+            child: const Icon(Icons.qr_code_rounded, color: Color(0xFFD97706), size: 22)),
+          const SizedBox(width: 12),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(card.name, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800,
+                color: Color(0xFF0F172A))),
+            const Text('QR Code', style: TextStyle(fontSize: 11,
+                color: Color(0xFFD97706), fontWeight: FontWeight.w600)),
+          ])),
+        ]),
+        if (card.qrRawData.isNotEmpty) ...[
+          const SizedBox(height: 14),
+          const Text('QR Content', style: TextStyle(fontSize: 11,
+              fontWeight: FontWeight.w600, color: AppColors.textSecondary)),
+          const SizedBox(height: 6),
+          GestureDetector(
+            onTap: () => onCopy(card.qrRawData),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white, borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFFFDE68A))),
+              child: Row(children: [
+                Expanded(child: Text(card.qrRawData, style: const TextStyle(
+                  fontSize: 12, color: Color(0xFF0F172A), fontFamily: 'monospace'),
+                  maxLines: 3, overflow: TextOverflow.ellipsis)),
+                const Icon(Icons.copy_outlined, size: 16, color: AppColors.textHint),
+              ]),
+            ),
+          ),
+        ],
+      ]),
+    );
+  }
+}
+
+// ─── Notes Section ────────────────────────────────────────────
+
+class _NotesSection extends StatefulWidget {
+  final CollectedCard card;
+  final void Function(CollectedCard) onSaved;
+  const _NotesSection({required this.card, required this.onSaved});
+  @override
+  State<_NotesSection> createState() => _NotesSectionState();
+}
+
+class _NotesSectionState extends State<_NotesSection> {
+  late TextEditingController _remarksCtrl;
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _remarksCtrl = TextEditingController(text: widget.card.remarks);
+  }
+
+  @override
+  void dispose() { _remarksCtrl.dispose(); super.dispose(); }
+
+  Future<void> _save() async {
+    setState(() => _saving = true);
+    await CardsService.instance.updateCollectedCard(widget.card.id,
+        remarks: _remarksCtrl.text.trim());
+    if (!mounted) return;
+    setState(() => _saving = false);
+    ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Notes saved'), duration: Duration(seconds: 1)));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return _Section(title: 'Notes', children: [
+      TextField(
+        controller: _remarksCtrl,
+        maxLines: 3,
+        decoration: InputDecoration(
+          hintText: 'Add notes about this contact...',
+          fillColor: Colors.white, filled: true,
+          contentPadding: const EdgeInsets.all(12),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(color: AppColors.border)),
+          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(color: AppColors.border)),
+          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(color: Color(0xFF6B21E8), width: 1.5))),
+      ),
+      const SizedBox(height: 8),
+      SizedBox(
+        height: 38,
+        child: ElevatedButton(
+          onPressed: _saving ? null : _save,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF6B21E8), elevation: 0,
+            minimumSize: Size.zero,
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
+          child: _saving
+              ? const SizedBox(width: 16, height: 16,
+                  child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+              : const Text('Save Notes', style: TextStyle(fontSize: 13, color: Colors.white)),
+        ),
+      ),
+    ]);
+  }
+}
+
+// ─── Shared Widgets ───────────────────────────────────────────
+
+class _Section extends StatelessWidget {
+  final String title;
+  final List<Widget> children;
+  const _Section({required this.title, required this.children});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text(title.toUpperCase(), style: const TextStyle(fontSize: 11,
+          fontWeight: FontWeight.w700, color: AppColors.textSecondary, letterSpacing: 1.0)),
+      const SizedBox(height: 8),
+      Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: AppColors.border),
+          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 6)]),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start,
+          children: children.map((w) => Padding(
+            padding: const EdgeInsets.only(bottom: 10), child: w)).toList()),
+      ),
+      const SizedBox(height: 4),
+    ]);
+  }
+}
+
+class _InfoRow extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback? onCopy;
+  const _InfoRow({required this.icon, required this.label, this.onCopy});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(children: [
+      Icon(icon, size: 16, color: AppColors.textSecondary),
+      const SizedBox(width: 10),
+      Expanded(child: Text(label, style: const TextStyle(fontSize: 14, color: Color(0xFF0F172A)))),
+      if (onCopy != null)
+        GestureDetector(onTap: onCopy,
+          child: const Icon(Icons.copy_outlined, size: 14, color: AppColors.textHint)),
+    ]);
+  }
 }
